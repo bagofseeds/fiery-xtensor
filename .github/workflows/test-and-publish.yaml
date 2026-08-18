@@ -67,6 +67,7 @@ jobs:
       test: ${{ inputs.test }}
       publish: ${{ inputs.publish }}
       python-version: ${{ inputs.python-version }}
+      requirements-file: tests/requirements.txt
     secrets:
       PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
       TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
