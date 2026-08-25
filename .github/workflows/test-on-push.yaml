@@ -10,6 +10,10 @@ on:
       - tests/**
       - pyproject.toml
       - .github/workflows/test*.yaml
+      # The suite executes the examples in the hand-written pages, so a
+      # change to one of those can turn it red on its own.
+      - README.md
+      - docs/**
   pull_request:
     # `ready_for_review` so marking a draft ready triggers the suite.
     types: [opened, synchronize, reopened, ready_for_review]
@@ -18,6 +22,10 @@ on:
       - tests/**
       - pyproject.toml
       - .github/workflows/test*.yaml
+      # The suite executes the examples in the hand-written pages, so a
+      # change to one of those can turn it red on its own.
+      - README.md
+      - docs/**
 
 permissions:
   contents: read
