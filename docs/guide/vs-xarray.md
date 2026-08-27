@@ -46,9 +46,10 @@ This page lists where the two diverge, in both directions.
   and the rest of that suite are not implemented.
 - **No IO / plotting / pandas bridge.** No NetCDF/Zarr readers, no `.plot`, no
   `.to_pandas()` / `MultiIndex`.
-- **Curvilinear `.sel` is single-point and brute force; `.interp` isn't there
-  yet.** A coordinate can span several dims at once — a `lat(y, x)`-style
-  grid, jointly queried as `.sel(lat=.., lon=..)`/`.interp(lat=.., lon=..)`
+- **Curvilinear `.sel` is single-point and brute force; `.interp` is an
+  approximate, iterative inverse.** A coordinate can span several dims at
+  once — a `lat(y, x)`-style grid, jointly queried as
+  `.sel(lat=.., lon=..)`/`.interp(lat=.., lon=..)`
   ([guide](coordinates.md#coordinates-spanning-several-dimensions),
   [Proposal 0005](../proposals/0005-multiple-coordinates.md), issue #82) —
   in two forms with very different capabilities. The compact **affine**
@@ -66,8 +67,24 @@ This page lists where the two diverge, in both directions.
   where the distance-matrix cost grows with the *product* of the source
   grid size and the query count — the reason every tree-based library in
   this space (xarray's `NDPointIndex`, `xoak`, `pyresample`) exists in the
-  first place. Curvilinear `.interp` isn't implemented at all yet (only
-  `.sel`).
+  first place. `.interp` over a curvilinear coordinate is scoped to a
+  **2-D** spanned coordinate (the common `lat(y, x)`/`lon(y, x)` case) and
+  `method="nearest"`/`"linear"`: since there is no closed form, it seeds a
+  fractional index from the same brute-force nearest lookup and refines it
+  with a few Newton iterations against a finite-difference Jacobian, in
+  plain `torch` (no extra dependency). Only that nearest-neighbor seed is
+  computed one point at a time (no vectorized form of that lookup exists);
+  the Newton solve and the final pull are both fully vectorized over the
+  whole batch. It raises rather than guessing when a query is out of the
+  grid's coordinate range, or lands close enough to a fold that the local
+  Jacobian is itself singular there — away from the fold line itself it
+  resolves to one of the (possibly several) valid preimages without warning
+  that another exists — and does not carry gradients back to the query
+  point or the coordinate arrays — only to the tensor's own data values,
+  same as every other `interp` call. Convergence and singularity checks
+  scale with the coordinates' own magnitude rather than a fixed absolute
+  unit. A higher spline order, or more than 2 spanned dims, isn't
+  implemented.
 - **Alignment is inner-join only.** There is no `join="outer"/"left"/"right"`
   (which would need NaN fill); operands align to the **intersection** of their
   labels. (xarray's *default* `arithmetic_join` is also `"inner"`, so the

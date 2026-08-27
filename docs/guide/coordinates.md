@@ -286,8 +286,30 @@ grid.sel(lat=52.1, lon=4.3, method="nearest")   # nearest grid point, by raw dis
 
 Unlike the affine form, this has no inverse formula to solve — `.sel` finds
 the nearest point by brute-force distance instead (unit-blind, and a
-single-point query only; it isn't meant for bulk regridding). `.interp` over
-a curvilinear coordinate isn't implemented yet — only `.sel`.
+single-point query only; it isn't meant for bulk regridding).
+
+`.interp` over a curvilinear coordinate computes a genuinely interpolated
+value, not just the nearest tick — it seeds a fractional position from that
+same nearest-point lookup, then refines it with a few Newton iterations
+against the coordinate's locally estimated slope:
+
+```python
+grid.interp(lat=52.13, lon=4.28)                # method="nearest" or "linear"
+```
+
+This is scoped to a **2-D** spanned coordinate (the `lat(y, x)`/`lon(y, x)`
+case above) and to `method="nearest"`/`"linear"` — a higher spline order, or
+more than 2 spanned dims, isn't implemented. A query outside the grid's
+coordinate range, or landing close enough to a fold that the local Jacobian
+is itself singular there, raises rather than returning a silently wrong
+answer. That detection is local: away from the fold line itself, a query
+still resolves to one of the (possibly several) valid preimages — whichever
+its nearest-neighbor seed lands closest to — without warning that another
+equally-valid one exists. Convergence and singularity checks scale with the
+coordinates' own magnitude rather than a fixed absolute unit, so this works
+the same whether the coordinate values are e.g. degrees or metres. Gradients
+flow through the tensor's own data values, as with any other `interp` call,
+but not back through the query point or the coordinate arrays themselves.
 
 ## Multiple coordinates per axis
 
